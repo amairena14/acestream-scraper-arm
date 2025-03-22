@@ -81,8 +81,9 @@ RUN mkdir -p ZeroNet && \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Instalación de Acestream para ARM
-ADD engine_3.1.80.0_armv8_64.tar.gz /tmp
-RUN cd /tmp/acestream.engine && \
+ADD engine_3.1.80.0_armv8_64.tar.gz /tmp/
+RUN mkdir -p /tmp/acestream.engine/androidfs/system /tmp/acestream.engine/androidfs/acestream.engine && \
+    cd /tmp/acestream.engine && \
     mv androidfs/system / && \
     mv androidfs/acestream.engine / && \
     mkdir -p /storage && \
