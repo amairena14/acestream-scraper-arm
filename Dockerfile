@@ -81,11 +81,8 @@ RUN mkdir -p ZeroNet && \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Instalación de Acestream para ARM
-COPY engine_3.1.61_armv7.tar.gz /tmp/
-RUN cd /tmp && \
-    mkdir -p acestream.engine && \
-    tar -xzvf engine_3.1.61_armv7.tar.gz -C acestream.engine && \
-    cd acestream.engine && \
+ADD engine_3.1.61_armv7.tar.gz /tmp
+RUN cd /tmp/acestream.engine && \
     mv androidfs/system / && \
     mv androidfs/acestream.engine / && \
     mkdir -p /storage && \
