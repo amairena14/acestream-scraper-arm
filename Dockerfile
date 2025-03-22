@@ -93,7 +93,6 @@ RUN mkdir -p /tmp/acestream.engine/androidfs/system /tmp/acestream.engine/androi
     chown -R root:root /system && \
     find /system -type d -exec chmod 755 {} \; && \
     find /system -type f -exec chmod 644 {} \; && \
-    chmod 755 /system/bin/* /acestream.engine/python/bin/python
 
 # Copiar el binario Acexy desde la primera etapa
 COPY --from=acexy-builder /acexy /usr/local/bin/acexy
