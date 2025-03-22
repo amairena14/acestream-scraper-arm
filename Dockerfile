@@ -92,7 +92,7 @@ RUN mkdir -p /tmp/acestream.engine/androidfs/system /tmp/acestream.engine/androi
     ln -s /etc/hosts /system/etc/hosts && \
     chown -R root:root /system && \
     find /system -type d -exec chmod 755 {} \; && \
-    find /system -type f -exec chmod 644 {} \; && \
+    find /system -type f -exec chmod 644 {} \;
 
 # Copiar el binario Acexy desde la primera etapa
 COPY --from=acexy-builder /acexy /usr/local/bin/acexy
