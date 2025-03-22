@@ -11,11 +11,13 @@ if [ -z "${ENABLE_ACESTREAM_ENGINE+x}" ]; then
     export ENABLE_ACESTREAM_ENGINE=$ENABLE_ACEXY
     echo "ENABLE_ACESTREAM_ENGINE not set, using ENABLE_ACEXY value: $ENABLE_ACESTREAM_ENGINE"
 fi
+
 # Update ACESTREAM_HTTP_HOST to use the actual value of ACEXY_HOST
 if [ "$ACESTREAM_HTTP_HOST" = "ACEXY_HOST" ]; then
     export ACESTREAM_HTTP_HOST="$ACEXY_HOST"
     echo "Setting ACESTREAM_HTTP_HOST to $ACEXY_HOST"
 fi
+
 # Run database migrations
 cd /app
 echo "Running database migrations..."
@@ -42,18 +44,18 @@ ln -sf "$ZERONET_CONFIG" /app/ZeroNet/zeronet.conf
 if [ "$ENABLE_TOR" = "true" ]; then
     echo "Starting Tor service..."
     service tor start
-    # Add a brief pause to ensure Tor has time to start
-    sleep 3
+    sleep 3  # Brief pause to ensure Tor has time to start
 fi
 
-# Start Acestream Engine if enabled
+# Start Acestream Engine if enabled (ARM version)
 if [ "$ENABLE_ACESTREAM_ENGINE" = "true" ]; then
-    echo "Starting Acestream engine..."
+    echo "Starting Acestream engine (ARM version)..."
     if [ "$ALLOW_REMOTE_ACCESS" = "yes" ]; then
         EXTRA_FLAGS="$EXTRA_FLAGS --bind-all"
     fi
-    /opt/acestream/start-engine --client-console --http-port $ACESTREAM_HTTP_PORT $EXTRA_FLAGS &  
-    sleep 3 # Brief pause to allow Acestream engine to start
+    # Invoca el script de inicio de Acestream para ARM.
+    /system/bin/acestream.sh $EXTRA_FLAGS &
+    sleep 3  # Brief pause to allow Acestream engine to start
 fi
 
 # Start Acexy if enabled
@@ -62,7 +64,7 @@ if [ "$ENABLE_ACEXY" = "true" ]; then
         echo "ERROR: When Acestream Engine is disabled, you must specify ACEXY_HOST and ACEXY_PORT other than localhost to connect to an external Acestream Engine instance"
         exit 1
     fi
-    
+
     echo "Starting Acexy proxy..."
     export ACEXY_HOST
     export ACEXY_PORT
@@ -77,7 +79,6 @@ echo "Starting ZeroNet..."
 python3 zeronet.py main &
 ZERONET_PID=$!
 
-# Wait for ZeroNet to start
 echo "Waiting for ZeroNet to initialize..."
 sleep 10
 
@@ -94,7 +95,6 @@ exec gunicorn \
     "wsgi:asgi_app" &
 GUNICORN_PID=$!
 
-# Monitor processes
 echo "Services started. Monitoring processes..."
 trap "echo 'Shutting down services...'; kill $(jobs -p)" EXIT INT TERM QUIT
 
