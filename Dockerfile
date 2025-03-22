@@ -38,7 +38,8 @@ RUN echo "ControlPort 9051" >> /etc/tor/torrc && \
     echo "CookieAuthentication 1" >> /etc/tor/torrc
 
 # Copiar archivos de la aplicación
-COPY --chmod=0755 entrypoint.sh /app/entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod 0755 /app/entrypoint.sh
 COPY requirements.txt requirements-prod.txt ./
 COPY migrations/ ./migrations/
 COPY migrations_app.py manage.py ./
