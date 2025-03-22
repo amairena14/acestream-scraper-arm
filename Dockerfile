@@ -1,25 +1,23 @@
-# Use a multi-stage build for Acexy
+# Primera etapa: Compilación de Acexy
 FROM golang:1.22 AS acexy-builder
 WORKDIR /app
 RUN git clone https://github.com/Javinator9889/acexy.git . && \
     cd acexy && \
-    CGO_ENABLED=0 GOOS=linux go build -o /acexy
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /acexy
 
-# Continue with your main image
+# Segunda etapa: Imagen principal para ARM64
 FROM python:3.10-slim
 
-# Add metadata labels
+# Metadatos
 LABEL maintainer="pipepito" \
-      description="Acestream channel scraper with ZeroNet support" \
-      version="1.2.14"
+      description="Acestream channel scraper with ZeroNet support (ARM64 compatible)" \
+      version="1.2.14-arm64"
 
-# Set the working directory
+# Directorio de trabajo y configuración
 WORKDIR /app
-
-# Create the config directory
 RUN mkdir -p /app/config
 
-# Install system dependencies
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -27,13 +25,19 @@ RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
     build-essential \
-    tor
+    tor \
+    sudo \
+    ca-certificates \
+    lsb-release \
+    dirmngr \
+    apt-transport-https \
+    --no-install-recommends
 
-# Add TOR configuration
+# Configuración de TOR
 RUN echo "ControlPort 9051" >> /etc/tor/torrc && \
     echo "CookieAuthentication 1" >> /etc/tor/torrc
 
-# Copy application files
+# Copiar archivos de la aplicación
 COPY --chmod=0755 entrypoint.sh /app/entrypoint.sh
 COPY requirements.txt requirements-prod.txt ./
 COPY migrations/ ./migrations/
@@ -41,11 +45,11 @@ COPY migrations_app.py manage.py ./
 COPY wsgi.py ./
 COPY app/ ./app/
 
-# Install the required dependencies
+# Instalar dependencias Python
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Install ZeroNet dependencies with specific versions
+# Instalar dependencias de ZeroNet
 RUN pip install --no-cache-dir \
     "msgpack-python" \
     "gevent==22.10.2" \
@@ -65,37 +69,38 @@ RUN pip install --no-cache-dir \
     "defusedxml" \
     "rsa"
 
-# Download and install ZeroNet
+# Descargar e instalar ZeroNet
 RUN mkdir -p ZeroNet && \
     wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/master.tar.gz -O ZeroNet.tar.gz && \
     tar xvf ZeroNet.tar.gz && \
     mv zeronet-conservancy-master/* ZeroNet/ && \
     rm -rf ZeroNet.tar.gz zeronet-conservancy-master
 
-ENV ACESTREAM_VERSION="3.2.3_ubuntu_22.04_x86_64_py3.10"
+# Configurar shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install acestream dependencies
-RUN apt-get update \
-  && apt-get install --no-install-recommends -y \
-      python3.10 ca-certificates wget sudo \
-  && rm -rf /var/lib/apt/lists/* \
-  #
-  # Download acestream
-  && wget --progress=dot:giga "https://download.acestream.media/linux/acestream_${ACESTREAM_VERSION}.tar.gz" \
-  && mkdir acestream \
-  && tar zxf "acestream_${ACESTREAM_VERSION}.tar.gz" -C acestream \
-  && rm "acestream_${ACESTREAM_VERSION}.tar.gz" \
-  && mv acestream /opt/acestream \
-  && pushd /opt/acestream || exit \
-  && bash ./install_dependencies.sh \
-  && popd || exit
+# Instalación de Acestream para ARM
+COPY engine_3.1.61_armv7.tar.gz /tmp/
+RUN cd /tmp && \
+    mkdir -p acestream.engine && \
+    tar -xzvf engine_3.1.61_armv7.tar.gz -C acestream.engine && \
+    cd acestream.engine && \
+    mv androidfs/system / && \
+    mv androidfs/acestream.engine / && \
+    mkdir -p /storage && \
+    mkdir -p /system/etc && \
+    ln -s /etc/resolv.conf /system/etc/resolv.conf && \
+    ln -s /etc/hosts /system/etc/hosts && \
+    chown -R root:root /system && \
+    find /system -type d -exec chmod 755 {} \; && \
+    find /system -type f -exec chmod 644 {} \; && \
+    chmod 755 /system/bin/* /acestream.engine/python/bin/python
 
-# Copy the acexy binary from the builder stage
+# Copiar el binario Acexy desde la primera etapa
 COPY --from=acexy-builder /acexy /usr/local/bin/acexy
 RUN chmod +x /usr/local/bin/acexy
 
-# Install Cloudflare WARP dependencies
+# Instalación de Cloudflare WARP para ARM64
 RUN apt-get update && apt-get install -y \
     apt-transport-https \
     gnupg \
@@ -105,23 +110,23 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     --no-install-recommends
 
-# Add Cloudflare GPG key and repository
+# Añadir clave GPG y repositorio de Cloudflare (modificado para ARM64)
 RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list
+    && echo "deb [arch=arm64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list
 
-# Install Cloudflare WARP
+# Instalar Cloudflare WARP
 RUN apt-get update && apt-get install -y cloudflare-warp \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the WARP setup script
+# Copiar el script de configuración de WARP
 COPY warp-setup.sh /app/warp-setup.sh
 RUN chmod +x /app/warp-setup.sh
 
-# Add the healthcheck script
+# Copiar scripts adicionales
 COPY healthcheck.sh /app/healthcheck.sh
 RUN chmod +x /app/healthcheck.sh
 
-# Set environment variable to indicate Docker environment
+# Variables de entorno
 ENV DOCKER_ENV=true
 ENV TZ='Europe/Madrid'
 ENV ENABLE_TOR=false
@@ -131,7 +136,6 @@ ENV ENABLE_WARP=false
 ENV WARP_ENABLE_NAT=true
 ENV WARP_ENABLE_IPV6=false
 ENV ACESTREAM_HTTP_PORT=6878
-# Added IPv6 disable flag
 ENV IPV6_DISABLED=true
 
 ENV FLASK_PORT=8000
@@ -143,34 +147,35 @@ ENV ACEXY_NO_RESPONSE_TIMEOUT=15s
 ENV ACEXY_BUFFER_SIZE=5MiB
 ENV ACESTREAM_HTTP_HOST=ACEXY_HOST
 
-# Acexy and Acestream environment variables
+# Flags adicionales para Acestream
 ENV EXTRA_FLAGS="--cache-dir /tmp --cache-limit 2 --cache-auto 1 --log-stderr --log-stderr-level error"
 
-# Expose the ports
+# Exponer puertos
 EXPOSE 8000
 EXPOSE 43110
 EXPOSE 43111
 EXPOSE 26552
 EXPOSE 8080
 EXPOSE 8621
-# Set the volume
+EXPOSE 6878
+
+# Volumen para ZeroNet
 VOLUME ["/app/ZeroNet/data"]
 
-# Clean up APT
+# Limpiar APT
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Make sure WORKDIR is set correctly
+# Asegurar que el directorio de trabajo es correcto
 WORKDIR /app
 
-# Define the healthcheck
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
     CMD /app/healthcheck.sh
 
-# IMPORTANT: The following capabilities must be added when running the container with WARP enabled:
+# IMPORTANTE: Es necesario añadir las siguientes capacidades cuando se ejecuta el contenedor con WARP habilitado:
 # --cap-add NET_ADMIN
 # --cap-add SYS_ADMIN
-# Example: docker run --cap-add NET_ADMIN --cap-add SYS_ADMIN -e ENABLE_WARP=true ...
-# Note: Container runs with IPv6 disabled to avoid DNS lookup issues
+# Ejemplo: docker run --cap-add NET_ADMIN --cap-add SYS_ADMIN -e ENABLE_WARP=true ...
 
 ENTRYPOINT ["/app/entrypoint.sh"]
