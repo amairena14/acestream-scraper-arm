@@ -91,9 +91,8 @@ RUN cd /tmp/acestream.engine && \
     ln -s /etc/hosts /system/etc/hosts && \
     chown -R root:root /system && \
     find /system -type d -exec chmod 755 {} \; && \
-    find /system -type f -exec chmod 644 {} \;
-# CORRECCIÓN: Aseguramos que el script de Acestream tenga permisos de ejecución
-RUN chmod +x /system/bin/acestream.sh
+    find /system -type f -exec chmod 644 {} \; && \
+    chmod +x /system/bin/acestream.sh
 
 # Copiar el binario Acexy desde la primera etapa
 COPY --from=acexy-builder /acexy /usr/local/bin/acexy
