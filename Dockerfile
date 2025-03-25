@@ -6,7 +6,7 @@ RUN git clone https://github.com/Javinator9889/acexy.git . && \
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /acexy
 
 # Segunda etapa: Imagen principal para ARM64
-FROM python:3.10-slim
+FROM python:3.10-slim-bullseye
 
 # Metadatos
 LABEL maintainer="pipepito" \
@@ -81,7 +81,7 @@ RUN mkdir -p ZeroNet && \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Instalación de Acestream para ARM
-ADD engine_3.1.80.0_armv8_64.tar.gz /tmp
+ADD engine_3.1.80_armv7.tar.gz /tmp
 RUN cd /tmp/acestream.engine && \
     mv androidfs/system / && \
     mv androidfs/acestream.engine / && \
