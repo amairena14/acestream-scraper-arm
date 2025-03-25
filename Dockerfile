@@ -1,8 +1,10 @@
 # Primera etapa: Compilación de Acexy
 FROM golang:1.22 AS acexy-builder
 WORKDIR /app
-RUN git clone https://github.com/Javinator9889/acexy.git . && \
+RUN git clone https://github.com/Javinator9889/acexy.git && \
+    cd acexy && \
     go mod init github.com/Javinator9889/acexy && \
+    go mod tidy && \
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /acexy
 
 # Segunda etapa: Imagen principal para ARM64
