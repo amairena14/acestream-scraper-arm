@@ -1,8 +1,8 @@
 # Primera etapa: Compilación de Acexy
 FROM golang:1.22 AS acexy-builder
 WORKDIR /app
+# Nota: Al clonar con “.” se copia el contenido directamente en /app, por lo que no es necesario hacer “cd acexy”.
 RUN git clone https://github.com/Javinator9889/acexy.git . && \
-    cd acexy && \
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /acexy
 
 # Segunda etapa: Imagen principal para ARM64
@@ -47,8 +47,8 @@ COPY wsgi.py ./
 COPY app/ ./app/
 
 # Instalar dependencias Python
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r requirements-prod.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-prod.txt
 
 # Instalar dependencias de ZeroNet
 RUN pip install --no-cache-dir \
@@ -92,6 +92,8 @@ RUN cd /tmp/acestream.engine && \
     chown -R root:root /system && \
     find /system -type d -exec chmod 755 {} \; && \
     find /system -type f -exec chmod 644 {} \;
+# CORRECCIÓN: Aseguramos que el script de Acestream tenga permisos de ejecución
+RUN chmod +x /system/bin/acestream.sh
 
 # Copiar el binario Acexy desde la primera etapa
 COPY --from=acexy-builder /acexy /usr/local/bin/acexy
@@ -108,12 +110,12 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends
 
 # Añadir clave GPG y repositorio de Cloudflare (modificado para ARM64)
-RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg \
-    && echo "deb [arch=arm64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list
+RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg && \
+    echo "deb [arch=arm64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list
 
 # Instalar Cloudflare WARP
-RUN apt-get update && apt-get install -y cloudflare-warp \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y cloudflare-warp && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copiar el script de configuración de WARP
 COPY warp-setup.sh /app/warp-setup.sh
